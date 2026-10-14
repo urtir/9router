@@ -77,6 +77,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
   const [importing, setImporting] = useState(false);
   const [testingModelId, setTestingModelId] = useState(null);
   const [modelTestResults, setModelTestResults] = useState({});
+  const [testingAll, setTestingAll] = useState(false);
 
   const handleTestModel = async (modelId) => {
     if (testingModelId) return;
@@ -160,6 +161,18 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
 
   const canImport = connections.some((conn) => conn.isActive !== false);
 
+  const handleTestAll = async () => {
+    if (testingAll || connections.length === 0 || allModels.length === 0) return;
+    setTestingAll(true);
+    try {
+      for (const { id } of allModels) {
+        await handleTestModel(id);
+      }
+    } finally {
+      setTestingAll(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-text-muted">
@@ -185,6 +198,11 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
         <Button size="sm" variant="secondary" icon="download" onClick={handleImport} disabled={!canImport || importing}>
           {importing ? "Importing..." : "Import from /models"}
         </Button>
+        {allModels.length > 0 && (
+          <Button size="sm" variant="secondary" icon="science" onClick={handleTestAll} disabled={!canImport || testingAll}>
+            {testingAll ? "Testing All..." : `Test All (${allModels.length})`}
+          </Button>
+        )}
       </div>
 
       {!canImport && (

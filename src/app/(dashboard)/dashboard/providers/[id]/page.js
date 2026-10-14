@@ -86,6 +86,7 @@ export default function ProviderDetailPage() {
   const stopOneByOneRef = useRef(false);
   const [importingQoderModels, setImportingQoderModels] = useState(false);
   const [importingClineModels, setImportingClineModels] = useState(false);
+  const [testingAllModels, setTestingAllModels] = useState(false);
   const { copied, copy } = useCopyToClipboard();
 
   const AG_RISK_STORAGE_KEY = "ag_risk_confirmed";
@@ -1148,6 +1149,39 @@ export default function ProviderDetailPage() {
     }
   };
 
+  // Every testable model id for the current provider (custom rows + enabled built-ins).
+  const getTestableModelIds = () => {
+    if (isCompatible) return [];
+    const allModels = [
+      ...models,
+      ...kiloFreeModels.filter((fm) => !models.some((m) => m.id === fm.id)),
+    ].filter((m) => { const k = getModelKind(m); return !k || k === "llm"; });
+    const disabledSet = new Set(disabledModelIds);
+    const displayIds = allModels.filter((m) => !disabledSet.has(m.id)).map((m) => m.id);
+    const customIds = getProviderCustomModelRows({
+      customModels,
+      modelAliases,
+      providerAlias: providerStorageAlias,
+      builtInModels: models,
+      type: "llm",
+    }).map((m) => m.id);
+    return [...new Set([...customIds, ...displayIds])];
+  };
+
+  const handleTestAllModels = async () => {
+    if (testingAllModels) return;
+    const targetIds = getTestableModelIds();
+    if (targetIds.length === 0) return;
+    setTestingAllModels(true);
+    try {
+      for (const modelId of targetIds) {
+        await handleTestModel(modelId);
+      }
+    } finally {
+      setTestingAllModels(false);
+    }
+  };
+
   const renderModelsSection = () => {
     if (isCompatible) {
       return (
@@ -1773,8 +1807,21 @@ export default function ProviderDetailPage() {
               ...kiloFreeModels.filter((fm) => !models.some((m) => m.id === fm.id)),
             ].filter((m) => { const k = getModelKind(m); return !k || k === "llm"; }).map((m) => m.id);
             const activeIds = allIds.filter((id) => !disabledModelIds.includes(id));
+            const canTest = connections.length > 0 || isFreeNoAuth;
+            const testableIds = getTestableModelIds();
             return (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                {canTest && testableIds.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon="science"
+                    onClick={handleTestAllModels}
+                    disabled={testingAllModels}
+                  >
+                    {testingAllModels ? "Testing All..." : `Test All (${testableIds.length})`}
+                  </Button>
+                )}
                 {disabledModelIds.length > 0 && (
                   <Button size="sm" variant="secondary" icon="restart_alt" onClick={handleEnableAll}>
                     Active All
